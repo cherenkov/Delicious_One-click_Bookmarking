@@ -1,0 +1,71 @@
+<html>
+<head>
+<script>
+window.Config = {
+  username: function() { return localStorage['username'] || ''; },
+  key: function() { return localStorage['delicious_api_key'] || ''; },
+  contextmenu: function() { return (localStorage['contextmenu'] == 'true') ? true : false; },
+  notifications: function() { return (localStorage['notifications'] == 'false') ? false : true; }
+};
+
+function clickEvent(tab) {
+  var key = Config.key();
+  if(key == '') return notice('Error!', 'You need to get API Key. Please check option.');
+
+  //選択文字列notesをもらってからpostするようにと、こうなった。
+  chrome.tabs.sendRequest(tab.id, "", function(response){
+    var notes = response.data;
+    var data = 'key=' + key + '&url=' + encodeURIComponent(tab.url) +
+               '&title=' + encodeURIComponent(tab.title) +
+               '&notes=' + encodeURIComponent(notes);
+    post(tab, data, notes);
+  });
+
+  function post(tab, data, notes) {
+    var xhr = new XMLHttpRequest();
+    xhr.onreadystatechange = function(data) {
+      if (xhr.readyState == 4) {
+        if (xhr.status == 200 && xhr.responseText == 'true') {
+          var title = (tab.title.trim() == '') ? tab.url : tab.title;
+          if (notes != '') {
+            title += ' :: "' + notes + '"';
+          }
+          notice('Bookmark!', title);
+        } else {
+          notice('Error!', 'Please check console.');
+          console.log('Error!', xhr.status, xhr.responseText);
+        }
+      }
+    }
+    var url = 'http://delicious.com/chromesave';
+    xhr.open('post', url, true);
+    xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+    xhr.send(data);
+  }
+}
+
+function notice(msg, title) {
+  if (Config.notifications() == false) return;
+  var notification = webkitNotifications.createNotification('icon48.png', msg, title);
+  notification.show();
+  setTimeout(function(){notification.cancel();}, 3000);
+}
+
+function openMyBookmarkPage() {
+  chrome.tabs.create({url: "http://www.delicious.com/" + Config.username()});
+}
+
+function createContextMenu() {
+  return chrome.contextMenus.create({"title": 'My bookmarks', "onclick": function(info, tab) {
+    openMyBookmarkPage();
+  }});
+}
+
+chrome.browserAction.onClicked.addListener(clickEvent);
+
+if (Config.contextmenu()) {
+  createContextMenu();
+}
+</script>
+</head>
+</html>

@@ -1,0 +1,166 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Option - Delicious One-click Bookmarking</title>
+</head>
+<script type="text/javascript">
+/*
+http://delicious.com/chromesave
+javascript:prompt('',document.getElementById('key').value)
+*/
+
+var BackGround = chrome.extension.getBackgroundPage();
+var Config = BackGround.Config;
+var notice = BackGround.notice;
+
+function saveOptions() {
+  function setKey() {
+    var xhr = new XMLHttpRequest();
+    xhr.onreadystatechange = function(data) {
+      if (xhr.readyState == 4) {
+        if (xhr.status == 200) {
+          var input = document.getElementById('inputKey');
+          try {
+            if (/<title>Sign in/i.test(xhr.responseText)) {
+              return notice('Error!', 'Please sign in to Delicious (Yahoo!).');
+            }
+            var key = /<input.+value="(.+)">$/m.exec(xhr.responseText)[1];
+            localStorage['delicious_api_key'] = key;
+            restoreOptions();
+            notice('Success!', 'Save Delicious API key.');
+          } catch(e) {
+            notice('Error!', 'Please check console.');
+            console.log('Error!', e, xhr.responseText);
+          }
+        } else {
+          notice('Error!', 'Please check console.');
+          console.log('Error!', xhr.status, xhr.responseText);
+        }
+      }
+    }
+    var url = 'http://delicious.com/chromesave';
+    xhr.open('get', url, true);
+    xhr.send();
+  }
+
+  function setUsername() {
+    var xhr = new XMLHttpRequest();
+    xhr.onreadystatechange = function(data) {
+      if (xhr.readyState == 4) {
+        if (xhr.status == 200) {
+          var input = document.getElementById('username');
+          try {
+            var username = /href="\/([^"]+).+id="list-link-bookmarks"/m.exec(xhr.responseText);
+            if (!username) {
+              return notice('Error!', 'Please sign in to Delicious (Yahoo!).');
+            }
+            localStorage['username'] = username[1];
+            restoreOptions();
+            notice('Success!', 'Save Yahoo! ID.');
+          } catch(e) {
+            notice('Error!', 'Please check console.');
+            console.log('Error!', e, xhr.responseText);
+          }
+        } else {
+          notice('Error!', 'Please check console.');
+          console.log('Error!', xhr.status, xhr.responseText);
+        }
+      }
+    }
+    var url = 'http://www.delicious.com/';
+    xhr.open('get', url, true);
+    xhr.send();
+  }
+
+  setKey();
+  setUsername();
+}
+
+function restoreOptions() {
+  //username
+  var username = Config.username();
+  document.getElementById('username').value = username;
+
+  //key
+  var key = Config.key();
+  document.getElementById('inputKey').value = key;
+  
+  //contextmenu
+  var contextmenu = (localStorage['contextmenu'] == 'true') ? true : false;
+  document.getElementById('contextCheck').checked = contextmenu;
+  
+  //notifications
+  var notifications = (localStorage['notifications'] == 'false') ? false : true;
+  document.getElementById('notifications').checked = notifications;
+  
+  //my bookmarks link
+  document.getElementById('mybookmarks').textContent = mybookmarks.href = 'http://www.delicious.com/' + username;
+}
+
+function contextOption(e) {
+  localStorage['contextmenu'] = e.checked;
+  if (e.checked) {
+    BackGround.createContextMenu();
+  } else {
+    chrome.contextMenus.removeAll();
+  }
+}
+
+function notificationsOption(e) {
+  localStorage['notifications'] = e.checked;
+}
+
+function resetData() {
+  localStorage.removeItem('username');
+  localStorage.removeItem('delicious_api_key');
+  localStorage.removeItem('contextmenu');
+  localStorage.removeItem('notifications');
+  restoreOptions();
+  chrome.contextMenus.removeAll();
+  notice('Reset', 'Delete user data.');
+}
+</script>
+<body onload="restoreOptions()">
+  <h1>Delicious One-click Bookmarking</h1>
+  <h2>Option</h2>
+  <fieldset>
+    <legend>User</legend>
+    <button onclick="saveOptions()">Get data</button>
+    <br />
+    <label for="username">Yahoo! ID:</label>
+    <input id="username" size="20" type="text" value="" readonly/>
+    <br />
+    <label for="inputKey">key:</label>
+    <input id="inputKey" size="35" type="text" value="" readonly/>
+  </fieldset>
+  <br />
+  <fieldset>
+    <legend>Context-menu</legend>
+    <label for="contextCheck">My bookmarks:</label>
+    <input id="contextCheck" onclick="contextOption(this)" type="checkbox" />
+  </fieldset>
+  <br />
+  <fieldset>
+    <legend>Notifications</legend>
+    <label for="notifications">Show:</label>
+    <input id="notifications" onclick="notificationsOption(this)" type="checkbox" />
+  </fieldset>
+  <br />
+  <fieldset>
+    <legend>Link</legend>
+    <li>
+      <a href="" id="mybookmarks" target="_blank"></a>
+    </li>
+    <li>
+      <a href="http://delicious.com/chromesave" target="_blank">http://delicious.com/chromesave</a>
+    </li>
+  </fieldset>
+  <br />
+  <fieldset>
+    <legend>Reset</legend>
+    <button onclick="resetData()">Delete data</button>
+  </fieldset>
+  <br />
+  author: <a href="http://twitter.com/cherenkov">@cherenkov</a>
+</body>
+</html>
